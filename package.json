@@ -1,0 +1,1 @@
+{"name":"mylogic-web","version":"1.0.0","private":true,"type":"module","scripts":{"start":"node server.mjs","build":"node scripts/build-data.mjs","test":"node --test tests/engine.test.mjs"}}

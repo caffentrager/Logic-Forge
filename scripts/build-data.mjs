@@ -1,0 +1,8 @@
+import fs from 'node:fs';import path from 'node:path';import {decodeSymbol,decodeCircuit} from '../dist/engine.js';
+const base=path.resolve('..'),data={version:1,symbols:{},circuits:{},sources:[],statistics:{}};
+function walk(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(path.join(dir,e.name)):[path.join(dir,e.name)]);}
+function text(file){return new TextDecoder('euc-kr').decode(fs.readFileSync(file));}
+for(const file of walk(path.join(base,'MyLogicSV51','Library','MyLogic'))){if(path.basename(file).toLowerCase()==='symbol'){const key=path.relative(path.join(base,'MyLogicSV51','Library','MyLogic'),path.dirname(file)).replaceAll('\\','/').toUpperCase();data.symbols[key]=decodeSymbol(text(file),key);}}
+for(const file of walk(path.join(base,'MyLogicSV51','Data','MyLogic','PRM'))){if(path.basename(file).toLowerCase()==='symbol'){const key='PRIMITIVE/'+path.basename(path.dirname(file)).toUpperCase();data.symbols[key]=decodeSymbol(text(file),key);}}
+for(const file of walk(path.join(base,'MyLogic'))){const n=path.basename(file).toLowerCase();if(n==='schematic'){const c=decodeCircuit(text(file));data.circuits[c.name.toUpperCase()]=c;data.sources.push({name:c.name,library:c.library,file:path.relative(base,file).replaceAll('\\','/')});}else if(n==='symbol'){const key='USER/'+path.basename(path.dirname(file)).toUpperCase();data.symbols[key]=decodeSymbol(text(file),key);}}
+data.statistics={symbols:Object.keys(data.symbols).length,circuits:Object.keys(data.circuits).length};fs.writeFileSync('dist/data.json',JSON.stringify(data));console.log(JSON.stringify(data.statistics));

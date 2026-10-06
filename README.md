@@ -2,6 +2,8 @@
 
 MyLogic SV5.1의 실습 회로와 심벌을 브라우저에서 편집하고 시뮬레이션하는 웹 CAD입니다. 서버나 계정 없이 로컬에서 실행할 수 있습니다.
 
+장기 목표는 MyLogic의 안정적인 대체입니다. 기능 확대보다 정확성·편집 안정성·저장/원본 호환성을 우선하며, GitHub Pages에 배포 가능한 정적 구조를 유지합니다. 개발 원칙과 검증 범위는 [ROADMAP.md](ROADMAP.md)에 정리합니다.
+
 ## 실행
 
 Windows: `start-web.cmd`를 더블클릭합니다. Node.js가 설치되어 있어야 합니다. Codex 환경에서는 번들 Node.js도 자동으로 찾습니다.
@@ -15,6 +17,8 @@ node server.mjs
 http://127.0.0.1:5173 에 접속합니다. Node.js 22 이상을 사용합니다. 외부 의존성이 없어 npm install은 필요하지 않습니다. 서버가 시작할 때 `src/`와 `assets/`로부터 `dist/`를 생성합니다. 정적 배포는 `node scripts/build.mjs`로 생성한 `dist/`를 사용합니다. `dist/`를 직접 수정하지 않습니다.
 
 비공개 웹 배포: https://mylogic-web.winterisgod0101.chatgpt.site
+
+GitHub Pages용 배포 결과도 동일한 `dist/`입니다. 정적 호스트에는 이 폴더의 내용만 게시하며 `server.mjs`를 실행할 필요가 없습니다. 자산은 상대 URL을 사용하고, 빌드 테스트는 `/Logic-Forge/` 하위 경로에서 HTML·모듈·데이터 URL이 배포 결과 안으로 연결되는지 확인합니다. 실제 GitHub Pages 게시 및 브라우저 검증은 별도 작업이며, 현재 게시된 것으로 간주하지 않습니다.
 
 ## 구현 기능
 

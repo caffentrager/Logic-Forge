@@ -71,6 +71,54 @@ test("A clean checkout builds deterministic output and retains deployed module U
       hash(fs.readFileSync(path.join(output, "data.json"), "utf8")),
       hash(fs.readFileSync(path.join(root, "assets/data.json"), "utf8")),
     );
+    // A project Pages site mounts dist below a repository path, rather than /.
+    // Resolve the actual build references using browser URL semantics.
+    const base = new URL("https://caffentrager.github.io/Logic-Forge/");
+    function asset(reference, owner = base) {
+      const url = new URL(reference, owner);
+      assert.equal(
+        url.origin,
+        base.origin,
+        "Unexpected external dependency: " + reference,
+      );
+      assert.ok(
+        url.pathname.startsWith(base.pathname),
+        "Escaped project base: " + reference,
+      );
+      const file = path.join(
+        output,
+        decodeURIComponent(url.pathname.slice(base.pathname.length)),
+      );
+      assert.ok(
+        fs.existsSync(file) && fs.statSync(file).isFile(),
+        "Missing static asset: " + url,
+      );
+      return url;
+    }
+    const html = fs.readFileSync(path.join(output, "index.html"), "utf8");
+    assert.doesNotMatch(
+      html,
+      /<base\b/i,
+      "Document base must stay at its hosting path",
+    );
+    for (const match of html.matchAll(/(?:src|href)="([^"]+)"/g))
+      asset(match[1]);
+    for (const file of inventory(output).filter((file) =>
+      file.endsWith(".js"),
+    )) {
+      const text = fs.readFileSync(file, "utf8");
+      const owner = new URL(
+        path.relative(output, file).split(path.sep).join("/"),
+        base,
+      );
+      for (const match of text.matchAll(
+        /^\s*(?:import\s+(?:[^;]*?\sfrom\s+)?|export\s+[^;]*?\sfrom\s+)['"]([^'"\r\n]+)['"]/gm,
+      ))
+        asset(match[1], owner);
+      // Window fetch resolves against the document, not the importing module.
+      for (const match of text.matchAll(/fetch\(\s*['"]([^'"]+)['"]/g))
+        asset(match[1]);
+    }
   } finally {
     // The directory is the unique temporary root created by this test.
     assert.equal(path.dirname(root), os.tmpdir());

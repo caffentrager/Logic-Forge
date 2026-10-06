@@ -70,6 +70,8 @@
 
 ## 변경 검증 규칙
 
+GitHub Pages 배포는 별도 `pages.yml`에서 `main` 검증·정적 빌드·전체 테스트 통과 후 `dist/` artifact를 게시합니다. 최초 Source 설정과 실제 배포 결과는 GitHub에서 확인하며, workflow 파일의 존재만으로 배포 완료로 판단하지 않습니다. 기존 Ubuntu/Windows CI와 `.openai/hosting.json`은 유지합니다.
+
 1. `node scripts/check.mjs`, `node scripts/build-data.mjs`, `node scripts/build.mjs`, `node --test tests/*.test.mjs`를 통과시킵니다.
 2. 리팩터링은 릴리스 기준값을 바꾸지 않습니다. 새 기준값을 현재 구현으로 자동 생성해 실패를 덮지 않습니다.
 3. 의도된 동작 수정에는 변경 전 실패 사례, 수정 후 검사와 파일/사용자 영향 설명을 포함합니다.

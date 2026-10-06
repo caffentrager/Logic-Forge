@@ -18,7 +18,11 @@ http://127.0.0.1:5173 에 접속합니다. Node.js 22 이상을 사용합니다.
 
 비공개 웹 배포: https://mylogic-web.winterisgod0101.chatgpt.site
 
-GitHub Pages용 배포 결과도 동일한 `dist/`입니다. 정적 호스트에는 이 폴더의 내용만 게시하며 `server.mjs`를 실행할 필요가 없습니다. 자산은 상대 URL을 사용하고, 빌드 테스트는 `/Logic-Forge/` 하위 경로에서 HTML·모듈·데이터 URL이 배포 결과 안으로 연결되는지 확인합니다. 실제 GitHub Pages 게시 및 브라우저 검증은 별도 작업이며, 현재 게시된 것으로 간주하지 않습니다.
+GitHub Pages 배포 대상: https://caffentrager.github.io/Logic-Forge/
+
+`.github/workflows/pages.yml`은 `main` push 또는 수동 실행 때 문법 검사 → `npm run build` → 전체 테스트 → Pages 설정 확인 → `dist/` 전체를 `github-pages` artifact로 업로드 → `github-pages` environment에 배포합니다. 기존 Ubuntu/Windows 검증 CI는 별도로 유지합니다. `dist/`는 Git에 커밋하지 않으며, 운영 서버는 필요하지 않습니다. HTML·CSS·JS·데이터의 상대 URL과 `/Logic-Forge/` 하위 경로 검사는 그대로 유지합니다.
+
+최초 설정: 저장소 **Settings → Pages → Build and deployment → Source → GitHub Actions**. workflow는 Pages를 자동 활성화하지 않습니다. 설정 후 **Actions → Deploy Logic Forge to GitHub Pages → Run workflow → main**으로 실행할 수 있습니다. 배포 성공 여부는 해당 실행의 deploy 결과와 environment URL에서 확인합니다. 위 URL은 설정과 첫 배포가 성공해야 접속할 수 있습니다.
 
 ## 구현 기능
 

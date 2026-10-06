@@ -1,6 +1,45 @@
-import http from 'node:http';
-import fs from 'node:fs';
-import path from 'node:path';
-const root = path.resolve('dist');
-const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml'};
-http.createServer((req,res)=>{let file;try{file=path.resolve(root,'.'+decodeURIComponent(new URL(req.url,'http://localhost').pathname));}catch{res.writeHead(400).end();return;}if(!file.startsWith(root+path.sep)&&file!==root){res.writeHead(403).end();return;}if(file===root)file=path.join(root,'index.html');fs.readFile(file,(err,data)=>{if(err){res.writeHead(404).end('Not found');return;}res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream','Cache-Control':'no-cache'});res.end(data);});}).listen(5173,'127.0.0.1',()=>console.log('Logic Forge: http://127.0.0.1:5173'));
+import http from "node:http";
+import fs from "node:fs";
+import path from "node:path";
+import { build, projectRoot } from "./scripts/build.mjs";
+// Starting a fresh checkout must also work before a separate build command.
+const root = build(projectRoot);
+const types = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml",
+};
+http
+  .createServer((req, res) => {
+    let file;
+    try {
+      file = path.resolve(
+        root,
+        "." + decodeURIComponent(new URL(req.url, "http://localhost").pathname),
+      );
+    } catch {
+      res.writeHead(400).end();
+      return;
+    }
+    if (!file.startsWith(root + path.sep) && file !== root) {
+      res.writeHead(403).end();
+      return;
+    }
+    if (file === root) file = path.join(root, "index.html");
+    fs.readFile(file, (err, data) => {
+      if (err) {
+        res.writeHead(404).end("Not found");
+        return;
+      }
+      res.writeHead(200, {
+        "Content-Type": types[path.extname(file)] || "application/octet-stream",
+        "Cache-Control": "no-cache",
+      });
+      res.end(data);
+    });
+  })
+  .listen(5173, "127.0.0.1", () =>
+    console.log("Logic Forge: http://127.0.0.1:5173"),
+  );

@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "build": "node scripts/build-data.mjs",
+    "build": "node scripts/build-data.mjs && node scripts/build.mjs",
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check dist/app.js && node --check dist/engine.js && node --check dist/formats.js && node --check dist/hdl.js"
+    "check": "node scripts/check.mjs",
+    "test:regression": "node --test tests/regression.test.mjs tests/build.test.mjs tests/ui.test.mjs tests/editor.test.mjs tests/storage.test.mjs"
   },
   "description": "Browser schematic editor and digital logic simulator based on MyLogic exercise data"
 }

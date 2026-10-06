@@ -12,7 +12,7 @@ cd Logic-Forge
 node server.mjs
 ```
 
-http://127.0.0.1:5173 에 접속합니다. 외부 의존성이 없어 npm install은 필요하지 않습니다. `dist/`는 일반 정적 웹 서버에서도 그대로 동작합니다.
+http://127.0.0.1:5173 에 접속합니다. Node.js 22 이상을 사용합니다. 외부 의존성이 없어 npm install은 필요하지 않습니다. 서버가 시작할 때 `src/`와 `assets/`로부터 `dist/`를 생성합니다. 정적 배포는 `node scripts/build.mjs`로 생성한 `dist/`를 사용합니다. `dist/`를 직접 수정하지 않습니다.
 
 비공개 웹 배포: https://mylogic-web.winterisgod0101.chatgpt.site
 
@@ -49,13 +49,17 @@ http://127.0.0.1:5173 에 접속합니다. 외부 의존성이 없어 npm instal
 ## 검증
 
 ```sh
-node --check dist/app.js
+node scripts/check.mjs
+node scripts/build-data.mjs
+node scripts/build.mjs
 node --test tests/*.test.mjs
 ```
 
-GitHub Actions가 푸시마다 문법·데이터 빌드·테스트를 실행합니다. 테스트는 원본 MyLogic 설치 없이 실행됩니다.
+GitHub Actions가 Linux와 Windows에서 푸시마다 문법·데이터 빌드·전체 테스트를 실행합니다. 테스트는 원본 MyLogic 설치나 브라우저 설치 없이 실행됩니다. npm이 있다면 `npm run check`, `npm run build`, `npm test`를 사용해도 됩니다. `npm run test:regression`은 릴리스 기준·빌드·저장소·편집·UI controller 회귀 검사를 실행합니다.
 
-17개 검사는 반가산기·전가산기 전체 조합, 4비트 덧셈 256가지, 원본 MySim 기록 비교, 10개 실습 도면 저장/불러오기 진리표 보존, 사용자 심벌, 복사 배선, 순차·메모리·3상 모델, 입력 패턴, 디코더, 계층 평탄화의 논리 동등성을 포함합니다.
+기존 17개 논리·파일 검사를 유지하고, 리팩터링 전 릴리스의 실습 10개 진리표·40개 파일 출력·심벌 600개 SVG·메뉴·렌더링 결과를 고정 기준으로 비교합니다. 입력 스위치, 복사/붙여넣기, undo/redo, 문자 편집, JSON 저장, 15 ns GEN 이벤트와 VECTOR/WATCH, 회로 전환은 실제 UI controller를 Node DOM/event host에서 실행해 검사합니다. clean build와 예전 배포 모듈 URL, 저장 키 fallback도 검사합니다. 기준값은 테스트 실행 중 재생성하지 않습니다. 자세한 출처는 [회귀 데이터 설명](tests/fixtures/README.md)에 있습니다.
+
+Node DOM host는 실제 브라우저 layout·file chooser·다운로드 검증을 대체하지 않습니다. 후속 검증과 큰 기능의 순서는 [ROADMAP.md](ROADMAP.md)에 정리했습니다. 이번 리팩터링은 입력 스위치 뒤 발생하던 잘못된 변수 참조 예외 하나를 제거했으며, 기존 입출력·시간 증가 방식은 유지합니다.
 
 ## 호환 범위
 
@@ -65,12 +69,18 @@ MySim의 실제 게이트 지연·타이밍 검사, 다비트 물리 버스, SPI
 
 ## 데이터와 소스
 
-- `dist/engine.js`: MFFT 파서, 배선 연결, 논리 시뮬레이터.
-- `dist/formats.js`: 원본 형식 저장, 심벌, 클립보드, 입력 패턴, VCD.
-- `dist/hdl.js`: 계층 평탄화와 Verilog/VHDL/EDIF 내보내기.
-- `dist/app.js`, `index.html`, `style.css`: 브라우저 편집기.
-- `scripts/build-data.mjs`: 제공된 원본 텍스트에서 라이브러리 재생성.
+- `src/core/`: MFFT 파서, 배선 연결, 기본 소자, 시뮬레이터, 진리표. `engine.js`는 공개 API입니다.
+- `src/editor/`: 배선이 붙은 부품 이동·회전·정렬, 클립보드.
+- `src/simulation/`, `src/formats/`: 입력 패턴, 원본 파일·심벌, VCD.
+- `src/export/`: 계층 평탄화, Verilog/VHDL/EDIF.
+- `src/storage/`: 저장 형식과 localStorage 호환.
+- `src/ui/`: DOM 이벤트·편집 상태를 연결하는 `app.js`, 메뉴, 설명, HTML/CSS, SVG 렌더러.
+- `src/compat/`: 예전 배포 URL을 유지하는 진입점. 빌드 시 `dist/` 루트에 배치됩니다.
+- `assets/data.json`: 원본 데이터 번들. `tests/fixtures/`: 원본 시뮬레이션 기록과 리팩터링 전 기준값.
+- `scripts/build-data.mjs`, `build.mjs`, `check.mjs`: 데이터 재생성, 배포 결과 생성, 전체 JS 문법 검사.
 
-원본이 `../MyLogic`, `../MyLogicSV51`에 있다면 `node scripts/build-data.mjs`로 재생성합니다. 다른 위치는 `node scripts/build-data.mjs <원본 폴더>`로 지정합니다. 원본이 없으면 포함된 `dist/data.json`을 사용합니다. CP949/EUC-KR 원본과 UTF-8 저장 파일을 읽습니다.
+core/editor/formats/export 모듈은 DOM에 의존하지 않습니다. UI renderer는 필요한 편집 상태를 인자로 받고, UI controller가 기존 이벤트 순서·undo·시뮬레이션 상태를 관리합니다. controller의 추가 분리는 다음 단계이며 새로운 기능과 함께 한꺼번에 바꾸지 않습니다.
+
+원본이 `../MyLogic`, `../MyLogicSV51`에 있다면 `node scripts/build-data.mjs`로 `assets/data.json`을 재생성합니다. 다른 위치는 `node scripts/build-data.mjs <원본 폴더>`로 지정합니다. 원본이 없으면 포함된 `assets/data.json`을 사용합니다. 이후 `node scripts/build.mjs`로 배포 결과를 만듭니다. CP949/EUC-KR 원본과 UTF-8 저장 파일을 읽습니다.
 
 원본 MyLogic 라이브러리 심벌·넷리스트와 실습 데이터는 사용자가 제공한 파일에서 추출했습니다. 해당 데이터의 권리는 원 저작권자에게 있으며, 이 저장소는 그 데이터에 대한 재배포 라이선스를 부여하지 않습니다. 저장소는 비공개로 생성했습니다.

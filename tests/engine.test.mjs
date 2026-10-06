@@ -1,12 +1,180 @@
-import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import path from 'node:path';import {simulate,truthTable,compile,pinsFor,clone,parseMFFT} from '../dist/engine.js';
-const data=JSON.parse(fs.readFileSync(new URL('../dist/data.json',import.meta.url)));
-test('Original 600 symbols and 10 circuits are loaded',()=>{assert.equal(Object.keys(data.symbols).length,600);assert.equal(Object.keys(data.circuits).length,10);});
-test('Half and full adders: every input combination matches arithmetic',()=>{for(const name of ['HA','FA','FA2']){const t=truthTable(data.circuits[name],data);for(const r of t.rows){const sum=r.A+r.B+(r.Cin||r.CIN||0);assert.equal(r.S,sum%2,name);assert.equal(r.C,Math.floor(sum/2),name);}}});
-test('4-bit hierarchical adder: all 256 additions including overflow',()=>{const c=data.circuits.ADDER4BIT;const graph=compile(c,data);for(let a=0;a<16;a++)for(let b=0;b<16;b++){const ins={};for(let i=0;i<4;i++){ins['A0'+i]=(a>>i)&1;ins['B0'+i]=(b>>i)&1;}const r=simulate(c,data,ins,{graph});let sum=r.outputs.CARRY04*16;for(let i=0;i<4;i++)sum+=r.outputs['SUM0'+i]*2**i;assert.equal(sum,a+b,`${a}+${b}`);assert.deepEqual(r.warnings,[]);}});
-test('BCD FND: decimal 0–6,8,9 match seven-segment patterns',()=>{const expected=['1111110','0110000','1101101','1111001','0110011','1011011','1011111',null,'1111111','1111011'];const rows=truthTable(data.circuits.FND,data).rows;for(let n=0;n<10;n++){if(expected[n])assert.equal('ABCDEFG'.split('').map(s=>rows[n][s]).join(''),expected[n]);} // The original exercise lights F for digit 7; preserve its actual circuit.
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import {
+  simulate,
+  truthTable,
+  compile,
+  pinsFor,
+  clone,
+  parseMFFT,
+} from "../src/core/engine.js";
+const data = JSON.parse(
+  fs.readFileSync(new URL("../assets/data.json", import.meta.url)),
+);
+test("Original 600 symbols and 10 circuits are loaded", () => {
+  assert.equal(Object.keys(data.symbols).length, 600);
+  assert.equal(Object.keys(data.circuits).length, 10);
 });
-test('Original MySim recordings match web simulation',()=>{let count=0;for(const s of JSON.parse(fs.readFileSync(new URL('./fixtures/my-sim-recordings.json',import.meta.url)))){const text=s.text,order=text.match(/TABLE_ORDER\s+([^;]+);/)?.[1].trim().split(/\s+/);if(!order)continue;const c=data.circuits[s.name.toUpperCase()],graph=compile(c,data),rows=text.split(/START\s*/)[1]?.split(/\r?\n/)||[];for(const line of rows.slice(0,32)){const m=line.trim().match(/^(\d+)\s+([01]+)$/);if(!m||m[2].length!==order.length)continue;const signals=Object.fromEntries(order.map((n,i)=>[n,+m[2][i]])),ins=Object.fromEntries(c.components.filter(c=>c.kind==='INPUT').map(c=>[c.name,signals[c.name]]));const r=simulate(c,data,ins,{graph});for(const [n,v]of Object.entries(r.outputs))if(n in signals){assert.equal(v,signals[n],`${s.name}, t=${m[1]}, ${n}`);count++;}}}assert.ok(count>100,`Verified ${count} outputs`);});
-test('Unconnected and unsupported gates produce X with diagnostics',()=>{const c=clone(data.circuits.HA);c.wires=[];const r=simulate(c,data,{A:1,B:1});assert.equal(r.outputs.S,'X');assert.ok(r.warnings.length);c.components[0].symbol='SPARTAN/UNSUPPORTED';assert.ok(simulate(c,data).warnings.some(s=>s.includes('미지원')));});
-test('Branches join at a segment endpoint; crossing wires remain separate',()=>{const c={components:[],wires:[{points:[[0,0],[100,0]]},{points:[[50,0],[50,50]]},{points:[[70,-20],[70,20]]}]};const g=compile(c,data);assert.equal(g.root([0,0]),g.root([50,50]));assert.notEqual(g.root([0,0]),g.root([70,-20]));});
-test('D flip-flop captures rising edge and holds until next edge',()=>{const gate={id:'fd',name:'I0',kind:'GATE',symbol:'SPARTAN/FD',x:0,y:0};const pins=pinsFor(gate,data),components=[gate],wires=[];for(const p of pins){const kind=p.direction===1?'INPUT':'OUTPUT';const q=[p.point[0]+(kind==='INPUT'?-40:40),p.point[1]];components.push({id:p.name,name:p.name,kind,x:q[0],y:q[1]});wires.push({id:p.name,points:[q,p.point]});}const c={components,wires},state={},clocks={};const go=(D,C)=>{const r=simulate(c,data,{D,C},{state,clocks});for(const [p,v]of Object.entries(r.pending)){state[p]=v.state;clocks[p]=v.clock;}return r.outputs.Q;};assert.equal(go(1,0),0);assert.equal(go(1,1),1);assert.equal(go(0,1),1);assert.equal(go(0,0),1);assert.equal(go(0,1),0);});
-test('Malformed MFFT is rejected',()=>assert.throws(()=>parseMFFT('(OBJECT (bad 1)')));
+test("Half and full adders: every input combination matches arithmetic", () => {
+  for (const name of ["HA", "FA", "FA2"]) {
+    const t = truthTable(data.circuits[name], data);
+    for (const r of t.rows) {
+      const sum = r.A + r.B + (r.Cin || r.CIN || 0);
+      assert.equal(r.S, sum % 2, name);
+      assert.equal(r.C, Math.floor(sum / 2), name);
+    }
+  }
+});
+test("4-bit hierarchical adder: all 256 additions including overflow", () => {
+  const c = data.circuits.ADDER4BIT;
+  const graph = compile(c, data);
+  for (let a = 0; a < 16; a++)
+    for (let b = 0; b < 16; b++) {
+      const ins = {};
+      for (let i = 0; i < 4; i++) {
+        ins["A0" + i] = (a >> i) & 1;
+        ins["B0" + i] = (b >> i) & 1;
+      }
+      const r = simulate(c, data, ins, { graph });
+      let sum = r.outputs.CARRY04 * 16;
+      for (let i = 0; i < 4; i++) sum += r.outputs["SUM0" + i] * 2 ** i;
+      assert.equal(sum, a + b, `${a}+${b}`);
+      assert.deepEqual(r.warnings, []);
+    }
+});
+test("BCD FND: decimal 0–6,8,9 match seven-segment patterns", () => {
+  const expected = [
+    "1111110",
+    "0110000",
+    "1101101",
+    "1111001",
+    "0110011",
+    "1011011",
+    "1011111",
+    null,
+    "1111111",
+    "1111011",
+  ];
+  const rows = truthTable(data.circuits.FND, data).rows;
+  for (let n = 0; n < 10; n++) {
+    if (expected[n])
+      assert.equal(
+        "ABCDEFG"
+          .split("")
+          .map((s) => rows[n][s])
+          .join(""),
+        expected[n],
+      );
+  } // The original exercise lights F for digit 7; preserve its actual circuit.
+});
+test("Original MySim recordings match web simulation", () => {
+  let count = 0;
+  for (const s of JSON.parse(
+    fs.readFileSync(
+      new URL("./fixtures/my-sim-recordings.json", import.meta.url),
+    ),
+  )) {
+    const text = s.text,
+      order = text
+        .match(/TABLE_ORDER\s+([^;]+);/)?.[1]
+        .trim()
+        .split(/\s+/);
+    if (!order) continue;
+    const c = data.circuits[s.name.toUpperCase()],
+      graph = compile(c, data),
+      rows = text.split(/START\s*/)[1]?.split(/\r?\n/) || [];
+    for (const line of rows.slice(0, 32)) {
+      const m = line.trim().match(/^(\d+)\s+([01]+)$/);
+      if (!m || m[2].length !== order.length) continue;
+      const signals = Object.fromEntries(order.map((n, i) => [n, +m[2][i]])),
+        ins = Object.fromEntries(
+          c.components
+            .filter((c) => c.kind === "INPUT")
+            .map((c) => [c.name, signals[c.name]]),
+        );
+      const r = simulate(c, data, ins, { graph });
+      for (const [n, v] of Object.entries(r.outputs))
+        if (n in signals) {
+          assert.equal(v, signals[n], `${s.name}, t=${m[1]}, ${n}`);
+          count++;
+        }
+    }
+  }
+  assert.ok(count > 100, `Verified ${count} outputs`);
+});
+test("Unconnected and unsupported gates produce X with diagnostics", () => {
+  const c = clone(data.circuits.HA);
+  c.wires = [];
+  const r = simulate(c, data, { A: 1, B: 1 });
+  assert.equal(r.outputs.S, "X");
+  assert.ok(r.warnings.length);
+  c.components[0].symbol = "SPARTAN/UNSUPPORTED";
+  assert.ok(simulate(c, data).warnings.some((s) => s.includes("미지원")));
+});
+test("Branches join at a segment endpoint; crossing wires remain separate", () => {
+  const c = {
+    components: [],
+    wires: [
+      {
+        points: [
+          [0, 0],
+          [100, 0],
+        ],
+      },
+      {
+        points: [
+          [50, 0],
+          [50, 50],
+        ],
+      },
+      {
+        points: [
+          [70, -20],
+          [70, 20],
+        ],
+      },
+    ],
+  };
+  const g = compile(c, data);
+  assert.equal(g.root([0, 0]), g.root([50, 50]));
+  assert.notEqual(g.root([0, 0]), g.root([70, -20]));
+});
+test("D flip-flop captures rising edge and holds until next edge", () => {
+  const gate = {
+    id: "fd",
+    name: "I0",
+    kind: "GATE",
+    symbol: "SPARTAN/FD",
+    x: 0,
+    y: 0,
+  };
+  const pins = pinsFor(gate, data),
+    components = [gate],
+    wires = [];
+  for (const p of pins) {
+    const kind = p.direction === 1 ? "INPUT" : "OUTPUT";
+    const q = [p.point[0] + (kind === "INPUT" ? -40 : 40), p.point[1]];
+    components.push({ id: p.name, name: p.name, kind, x: q[0], y: q[1] });
+    wires.push({ id: p.name, points: [q, p.point] });
+  }
+  const c = { components, wires },
+    state = {},
+    clocks = {};
+  const go = (D, C) => {
+    const r = simulate(c, data, { D, C }, { state, clocks });
+    for (const [p, v] of Object.entries(r.pending)) {
+      state[p] = v.state;
+      clocks[p] = v.clock;
+    }
+    return r.outputs.Q;
+  };
+  assert.equal(go(1, 0), 0);
+  assert.equal(go(1, 1), 1);
+  assert.equal(go(0, 1), 1);
+  assert.equal(go(0, 0), 1);
+  assert.equal(go(0, 1), 0);
+});
+test("Malformed MFFT is rejected", () =>
+  assert.throws(() => parseMFFT("(OBJECT (bad 1)")));

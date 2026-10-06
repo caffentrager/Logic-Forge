@@ -31,6 +31,9 @@ import {
   alignComponents,
 } from "../editor/geometry.js";
 import { loadLibrary, loadProject, saveProject } from "../storage/project.js";
+import { createCircuitHistory } from "./state/history.js";
+import { registerKeyboard } from "./interaction/keyboard.js";
+const editHistory = createCircuitHistory();
 const $ = (s) => document.querySelector(s);
 const data = await fetch("data.json").then((r) => r.json());
 let selectedIds = new Set(),
@@ -44,8 +47,6 @@ let circuit = clone(data.circuits.HA),
   mode = "select",
   placing = null,
   filter = "basic",
-  undo = [],
-  redo = [],
   inputs = {},
   state = {},
   clocks = {},
@@ -80,9 +81,7 @@ function persist() {
   }
 }
 function snapshot() {
-  undo.push(JSON.stringify(circuit));
-  if (undo.length > 60) undo.shift();
-  redo = [];
+  editHistory.snapshot(circuit);
   dirty = true;
 }
 function commit() {
@@ -149,8 +148,8 @@ function refresh() {
   $("#time-label").textContent = `t = ${time} ns`;
   $("#zoom-label").textContent =
     Math.round(($("#canvas").clientWidth / view.w) * 100) + "%";
-  $('[data-action="undo"]').disabled = !undo.length;
-  $('[data-action="redo"]').disabled = !redo.length;
+  $('[data-action="undo"]').disabled = !editHistory.canUndo;
+  $('[data-action="redo"]').disabled = !editHistory.canRedo;
 }
 function partBounds(c) {
   return componentBounds(c, data);
@@ -709,8 +708,7 @@ $("#canvas").addEventListener("pointermove", (e) => {
 });
 function endDrag() {
   if ((drag?.type === "part" || drag?.type === "figure") && drag.moved) {
-    undo.push(JSON.stringify(drag.original));
-    redo = [];
+    editHistory.recordDrag(drag.original);
     commit();
   }
   drag = null;
@@ -1041,18 +1039,16 @@ const actions = {
     toast("회로 파일을 저장했습니다.");
   },
   undo() {
-    if (!undo.length) return;
+    if (!editHistory.canUndo) return;
     stop();
-    redo.push(JSON.stringify(circuit));
-    circuit = JSON.parse(undo.pop());
+    circuit = editHistory.undo(circuit);
     selection = null;
     commit();
   },
   redo() {
-    if (!redo.length) return;
+    if (!editHistory.canRedo) return;
     stop();
-    undo.push(JSON.stringify(circuit));
-    circuit = JSON.parse(redo.pop());
+    circuit = editHistory.redo(circuit);
     selection = null;
     commit();
   },
@@ -1412,72 +1408,17 @@ $("#file-input").onchange = async (e) => {
     e.target.value = "";
   }
 };
-document.addEventListener("keydown", (e) => {
-  if (
-    ["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName) ||
-    $("#modal").open
-  )
-    return;
-  const k = e.key.toLowerCase();
-  if (e.ctrlKey || e.metaKey) {
-    const a = {
-      s: "save",
-      o: "import",
-      n: "new",
-      z: e.shiftKey ? "redo" : "undo",
-      y: "redo",
-      d: "duplicate",
-      a: "selectall",
-      c: "copy",
-      v: "paste",
-      x: "cut",
-      f: "find",
-      e: "check",
-      m: "makesymbol",
-      arrowleft: "alignleft",
-      arrowright: "alignright",
-      arrowup: "aligntop",
-      arrowdown: "alignbottom",
-    }[k];
-    if (a) {
-      e.preventDefault();
-      actions[a]();
-    }
-    return;
-  }
-  if (e.altKey) {
-    const a = {
-      arrowright: "spaceacross",
-      arrowup: "spacedown",
-      enter: "properties",
-    }[k];
-    if (a) {
-      e.preventDefault();
-      actions[a]();
-      return;
-    }
-  }
-  if (k === "escape") {
+registerKeyboard(document, {
+  actions,
+  isModalOpen: () => $("#modal").open,
+  setMode,
+  clearSelection() {
     setMode("select");
     selection = null;
     selectedIds.clear();
     refresh();
-  } else if (k === "v") setMode("select");
-  else if (k === "w" || k === "n") setMode("wire");
-  else if (k === "t") setMode("FIG_Text");
-  else if (k === "r") actions.rotate();
-  else if (k === "l") actions.rotateleft();
-  else if (k === "x") actions.fliph();
-  else if (k === "y") actions.flipv();
-  else if (k === "f" || k === "home") fit();
-  else if (k === "delete" || k === "backspace") {
-    e.preventDefault();
-    actions.delete();
-  } else if (k === " " || k === "f5") {
-    e.preventDefault();
-    actions.run();
-  } else if (k === "+" || k === "=") actions.zoomin();
-  else if (k === "-") actions.zoomout();
+  },
+  fit,
 });
 new ResizeObserver(() => {
   const aspect =

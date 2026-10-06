@@ -79,7 +79,7 @@ MySim의 실제 게이트 지연·타이밍 검사, 다비트 물리 버스, SPI
 - `assets/data.json`: 원본 데이터 번들. `tests/fixtures/`: 원본 시뮬레이션 기록과 리팩터링 전 기준값.
 - `scripts/build-data.mjs`, `build.mjs`, `check.mjs`: 데이터 재생성, 배포 결과 생성, 전체 JS 문법 검사.
 
-core/editor/formats/export 모듈은 DOM에 의존하지 않습니다. UI renderer는 필요한 편집 상태를 인자로 받고, UI controller가 기존 이벤트 순서·undo·시뮬레이션 상태를 관리합니다. controller의 추가 분리는 다음 단계이며 새로운 기능과 함께 한꺼번에 바꾸지 않습니다.
+core/editor/formats/export 모듈은 DOM에 의존하지 않습니다. UI renderer는 필요한 편집 상태를 인자로 받습니다. UI controller의 회로 undo/redo 기록은 `src/ui/state/history.js`, 단축키 라우팅은 `src/ui/interaction/keyboard.js`로 분리했습니다. `app.js`는 실행 정지·복원·commit 순서와 나머지 상태를 관리합니다. [책임 분류와 후속 분리 계획](src/ui/CONTROLLER.md)에 따라 새로운 기능과 함께 한꺼번에 바꾸지 않습니다.
 
 원본이 `../MyLogic`, `../MyLogicSV51`에 있다면 `node scripts/build-data.mjs`로 `assets/data.json`을 재생성합니다. 다른 위치는 `node scripts/build-data.mjs <원본 폴더>`로 지정합니다. 원본이 없으면 포함된 `assets/data.json`을 사용합니다. 이후 `node scripts/build.mjs`로 배포 결과를 만듭니다. CP949/EUC-KR 원본과 UTF-8 저장 파일을 읽습니다.
 

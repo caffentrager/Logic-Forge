@@ -110,6 +110,59 @@ test("Real application controller: inputs, editing, history, files, patterns and
         assert.equal(host.element(".signals-button").textContent, "입출력 ▸");
       },
     );
+    await t.test(
+      "History restoration stops simulation before saving and resets its timeline",
+      () => {
+        const originalSet = globalThis.setInterval,
+          originalClear = globalThis.clearInterval;
+        let active = false,
+          stops = 0;
+        const before = host.saved();
+        globalThis.setInterval = () => {
+          active = true;
+          return 123;
+        };
+        globalThis.clearInterval = (id) => {
+          assert.equal(id, 123);
+          // The running circuit must still be saved when stop is called.
+          assert.equal(
+            host.saved().components.length,
+            stops === 0
+              ? before.components.length * 2
+              : before.components.length,
+          );
+          active = false;
+          stops++;
+        };
+        try {
+          host.action("selectall");
+          host.action("copy");
+          host.action("paste");
+          host.action("run");
+          assert.equal(active, true);
+          assert.notEqual(host.element("#time-label").textContent, "t = 0 ns");
+          host.key("z", { ctrlKey: true });
+          assert.equal(active, false);
+          assert.equal(host.element("#time-label").textContent, "t = 0 ns");
+          assert.deepEqual(host.saved(), before);
+          assert.match(host.element("#run-button").innerHTML, /시뮬레이션/);
+          assert.equal(host.element('[data-action="redo"]').disabled, false);
+          host.action("run");
+          host.key("z", { metaKey: true, shiftKey: true });
+          assert.equal(active, false);
+          assert.equal(stops, 2);
+          assert.equal(host.element("#time-label").textContent, "t = 0 ns");
+          assert.equal(
+            host.saved().components.length,
+            before.components.length * 2,
+          );
+          assert.equal(host.element('[data-action="redo"]').disabled, true);
+        } finally {
+          globalThis.setInterval = originalSet;
+          globalThis.clearInterval = originalClear;
+        }
+      },
+    );
   } finally {
     host.action("reset");
     host.restore();
